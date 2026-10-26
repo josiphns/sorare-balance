@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorare Balance</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#18212f;background:#f4f6fa}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:960px;margin:auto;padding:22px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:14px;background:#19243a;color:white;display:grid;place-items:center;font-size:24px}
+h1{font-size:25px;margin:0}header p{margin:4px 0 0;color:#687386;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card,.panel{background:white;border:1px solid #e2e7ef;border-radius:16px;padding:18px;box-shadow:0 3px 12px #18212f08}
+.label{font-size:13px;color:#6b7585}.value{font-size:27px;font-weight:750;margin-top:8px;letter-spacing:-.5px}.negative{color:#bd3b45}.positive{color:#16835d}
+.grid{display:grid;grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);gap:14px;margin-top:14px}
+h2{font-size:17px;margin:0 0 14px}.panel{margin-top:14px}
+label{display:block;font-size:13px;font-weight:650;margin:12px 0 6px}
+input,select{width:100%;border:1px solid #d8deea;border-radius:10px;padding:11px;font:inherit;background:white}
+button{border:0;border-radius:10px;padding:11px 14px;font:inherit;font-weight:700;cursor:pointer;background:#19243a;color:white}
+button.secondary{background:#eef1f6;color:#273348}button.danger{background:#fff0f0;color:#a52e38}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.hint{font-size:12px;color:#6b7585;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 6px;border-bottom:1px solid #edf0f5}th{color:#6b7585;font-weight:650}.amount{text-align:right;white-space:nowrap;font-weight:700}
+.empty{padding:24px;text-align:center;color:#778194;font-size:14px}
+.status{display:inline-block;background:#fff5dc;color:#795b13;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:700}
+@media(max-width:700px){.wrap{padding:14px}.cards{grid-template-columns:1fr 1fr}.cards .card:last-child{grid-column:1/-1}.grid{grid-template-columns:1fr}.value{font-size:23px}table{font-size:12px}th,td{padding:9px 3px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="logo">⚽</div><div><h1>Sorare Balance</h1><p>Suivi de tes dépenses et récompenses estimées</p></div></header>
+<div class="cards">
+  <div class="card"><div class="label">Dépenses cumulées</div><div class="value" id="expenses">0,00 €</div></div>
+  <div class="card"><div class="label">Récompenses estimées</div><div class="value" id="rewards">0,00 €</div></div>
+  <div class="card"><div class="label">Balance théorique</div><div class="value" id="balance">0,00 €</div><div class="hint">Récompenses estimées − dépenses</div></div>
+</div>
+<div class="grid">
+  <section class="panel">
+    <h2>Ajouter une opération</h2>
+    <form id="entryForm">
+      <label for="type">Type</label>
+      <select id="type"><option value="gemmes">Achat de gemmes</option><option value="boutique">Offre boutique</option><option value="recompense">Récompense obtenue (valeur estimée)</option></select>
+      <label for="date">Date</label><input id="date" type="date" required>
+      <label for="description">Description</label><input id="description" placeholder="Ex. Pack gemmes / carte joueur" required maxlength="120">
+      <label for="amount">Montant en euros</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="10,00" required>
+      <button style="width:100%;margin-top:16px" type="submit">Ajouter l'opération</button>
+    </form>
+    <p class="hint">Les récompenses sont des estimations, pas de l'argent encaissé. Pour une carte, indique une valeur prudente basée sur des ventes comparables.</p>
+  </section>
+  <section class="panel">
+    <h2>Historique</h2>
+    <div id="history"></div>
+    <div class="actions">
+      <button class="secondary" id="exportBtn" type="button">Exporter CSV</button>
+      <button class="secondary" id="backupBtn" type="button">Sauvegarder JSON</button>
+      <label for="importFile" style="margin:0"><span class="secondary" style="display:inline-block;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:14px">Importer sauvegarde</span></label>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+    <p class="hint">La version 1 enregistre les données dans ce navigateur. Fais régulièrement une sauvegarde JSON. Les données ne sont pas encore synchronisées entre ton ordinateur et ton téléphone.</p>
+  </section>
+</div>
+<section class="panel">
+<h2>À savoir</h2>
+<p class="hint"><span class="status">VERSION 1 — SAISIE MANUELLE</span></p>
+<p class="hint">Cette première version ne se connecte pas encore à Sorare. Elle sert à valider le calcul et l'historique. L'étape suivante sera d'ajouter une base en ligne, puis de tester les données réellement accessibles via l'API officielle. Ne saisis jamais ton mot de passe Sorare dans cette page.</p>
+</section>
+</div>
+<script>
+const STORAGE_KEY = "sorareBalanceV1";
+const fmt = n => new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(n);
+const today = new Date(); document.getElementById("date").value = new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+let entries = [];
+try { entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); if(!Array.isArray(entries)) entries=[]; } catch(e){ entries=[]; }
+function save(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(entries)); render(); }
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function render(){
+ const expenses=entries.filter(x=>x.type!=="recompense").reduce((s,x)=>s+x.amount,0);
+ const rewards=entries.filter(x=>x.type==="recompense").reduce((s,x)=>s+x.amount,0);
+ document.getElementById("expenses").textContent=fmt(expenses);
+ document.getElementById("rewards").textContent=fmt(rewards);
+ const b=rewards-expenses, el=document.getElementById("balance"); el.textContent=(b>0?"+":"")+fmt(b); el.className="value "+(b>=0?"positive":"negative");
+ const root=document.getElementById("history");
+ if(!entries.length){root.innerHTML='<div class="empty">Aucune opération pour le moment.<br>Ajoute ton premier achat ci-contre.</div>';return;}
+ const sorted=[...entries].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt);
+ root.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Opération</th><th class="amount">Montant</th><th></th></tr></thead><tbody>'+sorted.map(x=>{
+ const isReward=x.type==="recompense", typeLabel=x.type==="gemmes"?"Gemmes":x.type==="boutique"?"Boutique":"Récompense";
+ return `<tr><td>${escapeHtml(x.date)}</td><td><strong>${escapeHtml(x.description)}</strong><br><span class="hint">${typeLabel}</span></td><td class="amount ${isReward?"positive":"negative"}">${isReward?"+":"−"}${fmt(x.amount)}</td><td><button class="danger" data-delete="${x.id}" title="Supprimer" aria-label="Supprimer">×</button></td></tr>`;
+ }).join("")+'</tbody></table></div>';
+ root.querySelectorAll("[data-delete]").forEach(btn=>btn.addEventListener("click",()=>{if(confirm("Supprimer cette opération ?")){entries=entries.filter(x=>x.id!==btn.dataset.delete);save();}}));
+}
+document.getElementById("entryForm").addEventListener("submit",e=>{
+ e.preventDefault(); const amount=Number(document.getElementById("amount").value);
+ if(!Number.isFinite(amount)||amount<=0)return;
+ entries.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),type:document.getElementById("type").value,date:document.getElementById("date").value,description:document.getElementById("description").value.trim(),amount:Math.round(amount*100)/100,createdAt:Date.now()});
+ save(); document.getElementById("description").value="";document.getElementById("amount").value="";
+});
+document.getElementById("exportBtn").addEventListener("click",()=>{
+ const rows=[["Date","Type","Description","Montant EUR"],...entries.map(x=>[x.date,x.type,x.description,x.amount.toFixed(2)])];
+ const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");
+ download(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),"sorare-balance.csv");
+});
+document.getElementById("backupBtn").addEventListener("click",()=>download(new Blob([JSON.stringify(entries,null,2)],{type:"application/json"}),"sorare-balance-backup.json"));
+function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+document.getElementById("importFile").addEventListener("change",async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{const data=JSON.parse(await f.text());if(!Array.isArray(data)||!data.every(x=>x&&typeof x.description==="string"&&typeof x.amount==="number"&&["gemmes","boutique","recompense"].includes(x.type)))throw Error();
+ if(confirm("Importer cette sauvegarde et remplacer l'historique actuel ?")){entries=data;save();alert("Sauvegarde importée.");}
+ }catch(err){alert("Fichier invalide. Choisis une sauvegarde JSON créée par Sorare Balance.");}
+ e.target.value="";
+});
+render();
+</script>
+</body>
+</html>
