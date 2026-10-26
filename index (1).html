@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sorare Balance</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#18212f;background:#f4f6fa}
+*{box-sizing:border-box}body{margin:0}.wrap{max-width:960px;margin:auto;padding:22px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px}.logo{width:46px;height:46px;border-radius:14px;background:#19243a;color:white;display:grid;place-items:center;font-size:24px}
+h1{font-size:25px;margin:0}header p{margin:4px 0 0;color:#687386;font-size:13px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.card,.panel{background:white;border:1px solid #e2e7ef;border-radius:16px;padding:18px;box-shadow:0 3px 12px #18212f08}
+.label{font-size:13px;color:#6b7585}.value{font-size:27px;font-weight:750;margin-top:8px;letter-spacing:-.5px}.negative{color:#bd3b45}.positive{color:#16835d}
+.grid{display:grid;grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);gap:14px;margin-top:14px}
+h2{font-size:17px;margin:0 0 14px}.panel{margin-top:14px}
+label{display:block;font-size:13px;font-weight:650;margin:12px 0 6px}
+input,select{width:100%;border:1px solid #d8deea;border-radius:10px;padding:11px;font:inherit;background:white}
+button{border:0;border-radius:10px;padding:11px 14px;font:inherit;font-weight:700;cursor:pointer;background:#19243a;color:white}
+button.secondary{background:#eef1f6;color:#273348}button.danger{background:#fff0f0;color:#a52e38}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.hint{font-size:12px;color:#6b7585;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 6px;border-bottom:1px solid #edf0f5}th{color:#6b7585;font-weight:650}.amount{text-align:right;white-space:nowrap;font-weight:700}
+.empty{padding:24px;text-align:center;color:#778194;font-size:14px}
+.status{display:inline-block;background:#fff5dc;color:#795b13;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:700}
+@media(max-width:700px){.wrap{padding:14px}.cards{grid-template-columns:1fr 1fr}.cards .card:last-child{grid-column:1/-1}.grid{grid-template-columns:1fr}.value{font-size:23px}table{font-size:12px}th,td{padding:9px 3px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="logo">⚽</div><div><h1>Sorare Balance</h1><p>Suivi de tes dépenses et récompenses estimées</p></div></header>
+<section class="panel" id="authPanel">
+<h2>Connexion pour synchroniser tes données</h2>
+<p class="hint">Crée ton compte Sorare Balance avec une adresse e-mail et un mot de passe. Utilise le même compte sur ton téléphone et ton Chromebook.</p>
+<form id="authForm">
+<label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="email" required>
+<label for="password">Mot de passe (6 caractères minimum)</label><input id="password" type="password" autocomplete="current-password" minlength="6" required>
+<div class="actions"><button type="submit" id="loginBtn">Se connecter</button><button class="secondary" type="button" id="signupBtn">Créer mon compte</button></div>
+</form><p class="hint" id="authMessage" role="status"></p>
+</section>
+<div id="app" hidden>
+<div class="panel"><span class="status" id="syncStatus">Connexion en ligne</span> <span class="hint" id="userLabel"></span><button class="secondary" id="logoutBtn" type="button" style="float:right">Se déconnecter</button></div>
+<div class="cards">
+  <div class="card"><div class="label">Dépenses cumulées</div><div class="value" id="expenses">0,00 €</div></div>
+  <div class="card"><div class="label">Récompenses estimées</div><div class="value" id="rewards">0,00 €</div></div>
+  <div class="card"><div class="label">Balance théorique</div><div class="value" id="balance">0,00 €</div><div class="hint">Récompenses estimées − dépenses</div></div>
+</div>
+<div class="grid">
+  <section class="panel">
+    <h2>Ajouter une opération</h2>
+    <form id="entryForm">
+      <label for="type">Type</label>
+      <select id="type"><option value="gemmes">Achat de gemmes</option><option value="boutique">Offre boutique</option><option value="recompense">Récompense obtenue (valeur estimée)</option></select>
+      <label for="date">Date</label><input id="date" type="date" required>
+      <label for="description">Description</label><input id="description" placeholder="Ex. Pack gemmes / carte joueur" required maxlength="120">
+      <label for="amount">Montant en euros</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="10,00" required>
+      <button style="width:100%;margin-top:16px" type="submit">Ajouter l'opération</button>
+    </form>
+    <p class="hint">Les récompenses sont des estimations, pas de l'argent encaissé. Pour une carte, indique une valeur prudente basée sur des ventes comparables.</p>
+  </section>
+  <section class="panel">
+    <h2>Historique</h2><div id="history"></div>
+    <div class="actions"><button class="secondary" id="exportBtn" type="button">Exporter CSV</button><button class="secondary" id="backupBtn" type="button">Sauvegarder JSON</button></div>
+    <p class="hint">Les opérations sont enregistrées en ligne dans ton compte et se retrouvent sur tes appareils après connexion.</p>
+  </section>
+</div>
+<section class="panel"><h2>À savoir</h2><p class="hint">Saisie manuelle : cette version ne se connecte pas encore automatiquement à Sorare. Ne saisis jamais ton mot de passe Sorare ici.</p></section>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://idabyxrwrltnlnsdjwcc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qdBSqUYB5BZSzboytsI3mw_--HIgqHd";
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const fmt = n => new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR"}).format(n);
+const today = new Date(); document.getElementById("date").value = new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+let entries = [], currentUser = null, busy = false;
+const authPanel=document.getElementById("authPanel"), app=document.getElementById("app"), authMessage=document.getElementById("authMessage");
+function message(s){authMessage.textContent=s;}
+function setBusy(v){busy=v;document.getElementById("loginBtn").disabled=v;document.getElementById("signupBtn").disabled=v;document.getElementById("syncStatus").textContent=v?"Synchronisation…":"Synchronisé en ligne";}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function showLoggedIn(user){currentUser=user;authPanel.hidden=!!user;app.hidden=!user;if(user)document.getElementById("userLabel").textContent="Connecté : "+user.email;}
+async function loadEntries(){
+ if(!currentUser)return;
+ document.getElementById("syncStatus").textContent="Chargement…";
+ const {data,error}=await client.from("sorare_transactions").select("*").order("transaction_date",{ascending:false}).order("created_at",{ascending:false});
+ if(error){document.getElementById("syncStatus").textContent="Erreur de chargement";alert("Impossible de charger les données : "+error.message);return;}
+ entries=(data||[]).map(x=>({id:x.id,type:x.category==="reward"?"recompense":x.category,date:x.transaction_date,description:x.description,amount:Number(x.amount),createdAt:new Date(x.created_at).getTime()}));
+ render();document.getElementById("syncStatus").textContent="Synchronisé en ligne";
+}
+function render(){
+ const expenses=entries.filter(x=>x.type!=="recompense").reduce((s,x)=>s+x.amount,0), rewards=entries.filter(x=>x.type==="recompense").reduce((s,x)=>s+x.amount,0);
+ document.getElementById("expenses").textContent=fmt(expenses);document.getElementById("rewards").textContent=fmt(rewards);
+ const b=rewards-expenses,el=document.getElementById("balance");el.textContent=(b>0?"+":"")+fmt(b);el.className="value "+(b>=0?"positive":"negative");
+ const root=document.getElementById("history");
+ if(!entries.length){root.innerHTML='<div class="empty">Aucune opération pour le moment.<br>Ajoute ton premier achat ci-contre.</div>';return;}
+ root.innerHTML='<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Opération</th><th class="amount">Montant</th><th></th></tr></thead><tbody>'+entries.map(x=>{const r=x.type==="recompense",label=x.type==="gemmes"?"Gemmes":x.type==="boutique"?"Boutique":"Récompense";return `<tr><td>${esc(x.date)}</td><td><strong>${esc(x.description)}</strong><br><span class="hint">${label}</span></td><td class="amount ${r?"positive":"negative"}">${r?"+":"−"}${fmt(x.amount)}</td><td><button class="danger" data-delete="${esc(x.id)}" type="button">×</button></td></tr>`}).join("")+'</tbody></table></div>';
+ root.querySelectorAll("[data-delete]").forEach(btn=>btn.addEventListener("click",async()=>{if(!confirm("Supprimer cette opération ?"))return;const {error}=await client.from("sorare_transactions").delete().eq("id",btn.dataset.delete);if(error){alert("Suppression impossible : "+error.message);return;}await loadEntries();}));
+}
+document.getElementById("authForm").addEventListener("submit",async e=>{e.preventDefault();if(busy)return;setBusy(true);message("Connexion en cours…");const email=document.getElementById("email").value.trim(),password=document.getElementById("password").value;const {data,error}=await client.auth.signInWithPassword({email,password});setBusy(false);if(error){message("Connexion impossible : "+error.message);return;}message("");showLoggedIn(data.user);await loadEntries();});
+document.getElementById("signupBtn").addEventListener("click",async()=>{if(busy)return;setBusy(true);message("Création du compte…");const email=document.getElementById("email").value.trim(),password=document.getElementById("password").value;if(!email||password.length<6){setBusy(false);message("Entre une adresse e-mail et un mot de passe d’au moins 6 caractères.");return;}const {data,error}=await client.auth.signUp({email,password});setBusy(false);if(error){message("Création impossible : "+error.message);return;}if(data.session){message("Compte créé.");showLoggedIn(data.user);await loadEntries();}else{message("Compte créé. Vérifie ta boîte mail et clique sur le lien de confirmation, puis reviens te connecter.");}});
+document.getElementById("logoutBtn").addEventListener("click",async()=>{await client.auth.signOut();entries=[];showLoggedIn(null);});
+document.getElementById("entryForm").addEventListener("submit",async e=>{e.preventDefault();if(!currentUser)return;const amount=Number(document.getElementById("amount").value);if(!Number.isFinite(amount)||amount<=0)return;const type=document.getElementById("type").value;document.getElementById("syncStatus").textContent="Enregistrement…";const row={user_id:currentUser.id,transaction_date:document.getElementById("date").value,category:type==="recompense"?"reward":type,description:document.getElementById("description").value.trim(),amount:Math.round(amount*100)/100};const {error}=await client.from("sorare_transactions").insert(row);if(error){document.getElementById("syncStatus").textContent="Erreur";alert("Enregistrement impossible : "+error.message);return;}document.getElementById("description").value="";document.getElementById("amount").value="";await loadEntries();});
+document.getElementById("exportBtn").addEventListener("click",()=>{const rows=[["Date","Type","Description","Montant EUR"],...entries.map(x=>[x.date,x.type,x.description,x.amount.toFixed(2)])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(";")).join("\r\n");download(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),"sorare-balance.csv");});
+document.getElementById("backupBtn").addEventListener("click",()=>download(new Blob([JSON.stringify(entries,null,2)],{type:"application/json"}),"sorare-balance-backup.json"));
+function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+client.auth.getSession().then(async({data})=>{if(data.session){showLoggedIn(data.session.user);await loadEntries();}});
+</script></body></html>
